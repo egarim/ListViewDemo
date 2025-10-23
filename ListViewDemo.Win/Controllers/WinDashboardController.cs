@@ -8,9 +8,6 @@ using DevExpress.XtraGrid.Views.Grid;
 
 namespace ListViewDemo.Win.Controllers
 {
-    /// <summary>
-    /// Controller that customizes the GridView in Dashboard items with column sizing and sorting configurations
-    /// </summary>
     public partial class WinDashboardController : ObjectViewController<DetailView, IDashboardData>
     {
         private WinDashboardViewerViewItem dashboardViewerViewItem;
@@ -40,7 +37,13 @@ namespace ListViewDemo.Win.Controllers
 
         private void DashboardViewerViewItem_ControlCreated(object sender, EventArgs e)
         {
-            CustomizeDashboardViewer(((WinDashboardViewerViewItem)sender).Viewer);
+            var viewerItem = (WinDashboardViewerViewItem)sender;
+            CustomizeDashboardViewer(viewerItem.Viewer);
+
+            if (viewerItem.Viewer.Dashboard != null)
+            {
+                ConfigureDashboardItems(viewerItem.Viewer.Dashboard);
+            }
         }
 
         private void CustomizeDashboardViewer(DashboardViewer dashboardViewer)
@@ -48,15 +51,42 @@ namespace ListViewDemo.Win.Controllers
             dashboardViewer.AllowPrintDashboardItems = true;
             dashboardViewer.DashboardItemControlCreated += DashboardViewer_DashboardItemControlCreated;
             dashboardViewer.DashboardItemControlUpdated += DashboardViewer_DashboardItemControlUpdated;
+            dashboardViewer.DashboardLoaded += DashboardViewer_DashboardLoaded;
+
+            if (dashboardViewer.Dashboard != null)
+            {
+                ConfigureDashboardItems(dashboardViewer.Dashboard);
+            }
+        }
+
+        private void DashboardViewer_DashboardLoaded(object sender, EventArgs e)
+        {
+            var viewer = (DashboardViewer)sender;
+            if (viewer.Dashboard != null)
+            {
+                ConfigureDashboardItems(viewer.Dashboard);
+            }
+        }
+
+        private void ConfigureDashboardItems(DevExpress.DashboardCommon.Dashboard dashboard)
+        {
+            foreach (var item in dashboard.Items)
+            {
+                if (item is DevExpress.DashboardCommon.GridDashboardItem gridItem)
+                {
+                    gridItem.GridOptions.ColumnWidthMode = DevExpress.DashboardCommon.GridColumnWidthMode.AutoFitToContents;
+
+                    System.Diagnostics.Debug.WriteLine($"Configured GridDashboardItem: {gridItem.ComponentName} with AutoFitToContents mode");
+                }
+            }
         }
 
         private void DashboardViewer_DashboardItemControlCreated(object sender, DashboardItemControlEventArgs e)
         {
             if (e.GridControl != null)
             {
-              
-                var gridView = e.GridControl.MainView as GridView;
-                gridView.HorzScrollVisibility = DevExpress.XtraGrid.Views.Base.ScrollVisibility.Always;
+                var gridControl = e.GridControl;
+                var gridView = gridControl.MainView as GridView;
 
                 if (gridView != null)
                 {
@@ -69,7 +99,8 @@ namespace ListViewDemo.Win.Controllers
         {
             if (e.GridControl != null)
             {
-                var gridView = e.GridControl.MainView as GridView;
+                var gridControl = e.GridControl;
+                var gridView = gridControl.MainView as GridView;
 
                 if (gridView != null)
                 {
@@ -84,62 +115,24 @@ namespace ListViewDemo.Win.Controllers
             {
                 gridView.BeginUpdate();
 
-                // Disable auto-width to allow horizontal scrolling
-                gridView.OptionsView.ColumnAutoWidth = false;
-
-                // Enable horizontal scroll
-                gridView.HorzScrollVisibility = DevExpress.XtraGrid.Views.Base.ScrollVisibility.Always;
-
-                // Show horizontal lines for better readability
-                gridView.OptionsView.ShowHorizontalLines = DevExpress.Utils.DefaultBoolean.True;
-              
-                // Configure embedded navigator
-                if (gridView.GridControl != null)
-                {
-                    var gridControl = gridView.GridControl;
-                    gridControl.UseEmbeddedNavigator = false;
-                    gridControl.EmbeddedNavigator.Buttons.Append.Visible = false;
-                    gridControl.EmbeddedNavigator.Buttons.Remove.Visible = false;
-                }
-
-                // Configure fixed widths for columns to force scrolling
-                foreach (DevExpress.XtraGrid.Columns.GridColumn column in gridView.Columns)
-                {
-                    ConfigureColumnWidth(column);
-
-                    // Special configuration for the Name column
-                    //if (column.FieldName == "Name")
-                    //{
-                    //    ConfigureNameColumn(column);
-                    //}
-                }
+                ConfigurePriceOnlySorting(gridView);
+                ConfigureAlwaysShowNameColumn(gridView);
 
                 gridView.EndUpdate();
-
-                // Refresh the grid control
-                if (gridView.GridControl != null)
-                {
-                    gridView.GridControl.Refresh();
-                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error in CustomizeGridView: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error en CustomizeGridView: {ex.Message}");
             }
-
-            // Apply additional configurations
-            ConfigurePriceOnlySorting(gridView);
         }
 
         private void ConfigurePriceOnlySorting(GridView gridView)
         {
-            // Allow general sorting in the GridView
             gridView.OptionsCustomization.AllowSort = true;
 
-            // Configure sorting only on specific columns
             foreach (DevExpress.XtraGrid.Columns.GridColumn column in gridView.Columns)
             {
-                if (column.FieldName == "Price")
+                if (column.Caption == "Price")
                 {
                     column.OptionsColumn.AllowSort = DevExpress.Utils.DefaultBoolean.True;
                 }
@@ -150,63 +143,22 @@ namespace ListViewDemo.Win.Controllers
             }
         }
 
-        private void ConfigureColumnWidth(DevExpress.XtraGrid.Columns.GridColumn column)
+        private void ConfigureAlwaysShowNameColumn(GridView gridView)
         {
-            // Set generous fixed widths to force horizontal scrolling
-            //caption because fieldname may vary in dashboards
-            switch (column.Caption)
+            foreach (DevExpress.XtraGrid.Columns.GridColumn column in gridView.Columns)
             {
-                case "Name":
-                    column.Width = 1500;
-                    column.OptionsColumn.AllowSize = false; // Prevent resizing for Name column
-                    return;
-                case "Price":
-                    column.Width = 150;
+                if (column.Caption == "Name")
+                {
+                    column.Fixed = DevExpress.XtraGrid.Columns.FixedStyle.Left;
+                    column.OptionsColumn.AllowShowHide = false;
+                    column.VisibleIndex = 0;
                     break;
-                case "Description":
-                    column.Width = 300;
-                    break;
-                case "Address":
-                    column.Width = 250;
-                    break;
-                case "Field1":
-                    column.Width = 180;
-                    break;
-                case "Column1":
-                case "Column2":
-                case "Column3":
-                case "Column4":
-                case "Column5":
-                    column.Width = 180;
-                    break;
-                case "Column6":
-                case "Column7":
-                case "Column8":
-                case "Column9":
-                case "Column10":
-                    column.Width = 160;
-                    break;
-                case "Column11":
-                case "Column12":
-                case "Column13":
-                case "Column14":
-                case "Colimn15":
-                    column.Width = 140;
-                    break;
-                default:
-                    column.Width = 150; // Default width
-                    break;
+                }
             }
-
-            // Allow the user to manually resize columns
-            column.OptionsColumn.AllowSize = true;
-            column.Visible = true;
         }
-
 
         protected override void OnDeactivated()
         {
-            // Clean up events when deactivating the controller
             if (dashboardViewerViewItem != null)
             {
                 dashboardViewerViewItem.ControlCreated -= DashboardViewerViewItem_ControlCreated;
@@ -215,6 +167,7 @@ namespace ListViewDemo.Win.Controllers
                 {
                     dashboardViewerViewItem.Viewer.DashboardItemControlCreated -= DashboardViewer_DashboardItemControlCreated;
                     dashboardViewerViewItem.Viewer.DashboardItemControlUpdated -= DashboardViewer_DashboardItemControlUpdated;
+                    dashboardViewerViewItem.Viewer.DashboardLoaded -= DashboardViewer_DashboardLoaded;
                 }
 
                 dashboardViewerViewItem = null;
