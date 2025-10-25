@@ -152,6 +152,8 @@ namespace ListViewDemo.Win.Controllers
                     column.Fixed = DevExpress.XtraGrid.Columns.FixedStyle.Left;
                     column.OptionsColumn.AllowShowHide = false;
                     column.VisibleIndex = 0;
+                    column.MinWidth = 4000;
+                    column.OptionsColumn.AllowSize = false;
                     break;
                 }
             }
